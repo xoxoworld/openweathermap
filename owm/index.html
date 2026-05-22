@@ -1,46 +1,36 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenWeatherMap - 다낭 날씨</title>
+    <title>open weather map</title>
   </head>
   <body>
-    <h1>다낭시</h1>
-    <h2>현재 날씨 : <span id="weather"></span>°C</h2>
-    <h3>날씨 설명: <span id="explanation"></span></h3>
-    <h3>습도: <span id="humidity"></span>%</h3>
-    <h3>풍속: <span id="wind_speed"></span> m/s</h3>
-
-    <img id="icon" src="" alt="날씨 아이콘" />
-
+    <h1>서울 날씨</h1>
+    <p>현재 온도 : <span id="ctemp"></span></p>
+    <p>현재 습도 : <span id="chum"></span></p>
+    <img id="icon" src="https://openweathermap.org/payload/api/media/file/04d.png" alt="" />
     <script>
-      // HTML 요소 선택 (id 값에 공백이 없도록 수정)
-      const weather = document.querySelector("#weather");
-      const explanation = document.querySelector("#explanation");
-      const humidity = document.querySelector("#humidity");
-      const windSpeed = document.querySelector("#wind_speed"); // 변수명 띄어쓰기 수정
+      const ctemp = document.querySelector("#ctemp");
+      const chum = document.querySelector("#chum");
       const icon = document.querySelector("#icon");
 
-      // OpenWeatherMap API 호출
       fetch(
-        "https://api.openweathermap.org/data/2.5/weather?id=1583992&appid=d5948ec3ace590812f0049bbdb822c43&units=metric",
+        "https://api.openweathermap.org/data/2.5/weather?id=1835848&appid=d5948ec3ace590812f0049bbdb822c43&units=metric",
       )
-        .then(res => res.json())
+        .then(res => {
+          console.log(res);
+          return res.json();
+        })
         .then(result => {
           console.log(result);
-
-          // API 데이터를 각각의 HTML 요소에 알맞게 삽입
-          weather.innerText = result.main.temp; // 현재 온도
-          explanation.innerText = result.weather[0].description; // 날씨 설명 (예: Few Clouds)
-          humidity.innerText = result.main.humidity; // 습도
-          windSpeed.innerText = result.wind.speed; // 풍속
-
-          // 날씨 아이콘 이미지 URL 설정 (공식 OWM 이미지 경로 사용)
-          let imgURL = `https://openweathermap.org/img/wn/${result.weather[0].icon}@2x.png`;
+          console.log(result.main.temp);
+          console.log(result.weather[0].icon); //04d
+          let imgURL = `https://openweathermap.org/payload/api/media/file/${result.weather[0].icon}.png`;
+          ctemp.innerText = result.main.temp;
+          chum.innerText = result.main.humidity;
           icon.setAttribute("src", imgURL);
-        })
-        .catch(error => console.error("날씨 데이터를 불러오는데 실패했습니다:", error));
+        });
     </script>
   </body>
 </html>

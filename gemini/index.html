@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>기상청 단기예보 조회</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #f8f9fa;
+        padding-top: 2rem;
+      }
+      .card {
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .table th {
+        background-color: #e9ecef;
+      }
+      .page-link {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-10">
+          <div class="card mb-4">
+            <div class="card-header bg-primary text-white text-center">
+              <h4 class="mb-0">🌤️ 기상청 단기예보 조회 (시간별 온도/습도)</h4>
+            </div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="baseDate" class="form-label font-weight-bold">조회 날짜</label>
+                  <input type="date" id="baseDate" class="form-content form-control" />
+                </div>
+                <div class="col-md-5">
+                  <label for="regionSelect" class="form-label">지역 선택</label>
+                  <select id="regionSelect" class="form-select">
+                    <option value="서울" data-nx="55" data-ny="127" selected>
+                      서울특별시 (55, 127)
+                    </option>
+                    <option value="부산" data-nx="98" data-ny="76">부산광역시 (98, 76)</option>
+                    <option value="대구" data-nx="89" data-ny="90">대구광역시 (89, 90)</option>
+                    <option value="인천" data-nx="55" data-ny="124">인천광역시 (55, 124)</option>
+                    <option value="광주" data-nx="58" data-ny="74">광주광역시 (58, 74)</option>
+                    <option value="대전" data-nx="67" data-ny="100">대전광역시 (67, 100)</option>
+                    <option value="울산" data-nx="102" data-ny="84">울산광역시 (102, 84)</option>
+                    <option value="세종" data-nx="66" data-ny="103">
+                      세종특별자치시 (66, 103)
+                    </option>
+                    <option value="경기_수원" data-nx="60" data-ny="121">
+                      경기도 수원시 (60, 121)
+                    </option>
+                    <option value="강원_춘천" data-nx="73" data-ny="134">
+                      강원도 춘천시 (73, 134)
+                    </option>
+                    <option value="충북_청주" data-nx="69" data-ny="107">
+                      충청북도 청주시 (69, 107)
+                    </option>
+                    <option value="충남_홍성" data-nx="55" data-ny="106">
+                      충청남도 홍성군 (55, 106)
+                    </option>
+                    <option value="전북_전주" data-nx="63" data-ny="89">
+                      전라북도 전주시 (63, 89)
+                    </option>
+                    <option value="전남_무안" data-nx="51" data-ny="67">
+                      전라남도 무안군 (51, 67)
+                    </option>
+                    <option value="경북_안동" data-nx="91" data-ny="106">
+                      경상북도 안동시 (91, 106)
+                    </option>
+                    <option value="경남_창원" data-nx="90" data-ny="77">
+                      경상남도 창원시 (90, 77)
+                    </option>
+                    <option value="제주" data-nx="52" data-ny="38">제주특별자치도 (52, 38)</option>
+                  </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                  <button id="btnSearch" class="btn btn-primary w-100">조회하기</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-bordered table-hover text-center mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>예보 날짜</th>
+                      <th>예보 시간</th>
+                      <th>기온 (TMP)</th>
+                      <th>습도 (REH)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="weatherTableBody">
+                    <tr>
+                      <td colspan="4" class="text-muted py-4">조회하기 버튼을 눌러주세요.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <nav class="mt-4">
+                <ul class="pagination justify-content-center" id="pagination"></ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // 1. 초기 세팅 (오늘 날짜 기본값 지정)
+      document.getElementById("baseDate").value = new Date().toISOString().substring(0, 10);
+
+      // 전역 변수 설정 (페이징용)
+      let processedData = [];
+      const itemsPerPage = 10;
+      let currentPage = 1;
+
+      // 2. 이벤트 리스너 등록
+      document.getElementById("btnSearch").addEventListener("click", fetchWeatherData);
+
+      // 3. 기상청 데이터 호출 함수
+      async function fetchWeatherData() {
+        const tableBody = document.getElementById("weatherTableBody");
+        const pagination = document.getElementById("pagination");
+
+        tableBody.innerHTML = `<tr><td colspan="4" class="text-primary py-4"><div class="spinner-border spinner-border-sm" role="status"></div> 데이터를 불러오는 중입니다...</td></tr>`;
+        pagination.innerHTML = "";
+
+        // 날짜 포맷 변경 (YYYYMMDD)
+        const rawDate = document.getElementById("baseDate").value;
+        if (!rawDate) {
+          alert("날짜를 선택해주세요.");
+          return;
+        }
+        const baseDate = rawDate.replace(/-/g, "");
+
+        // 선택된 지역의 nx, ny 가져오기
+        const regionSelect = document.getElementById("regionSelect");
+        const selectedOption = regionSelect.options[regionSelect.selectedIndex];
+        const nx = selectedOption.getAttribute("data-nx");
+        const ny = selectedOption.getAttribute("data-ny");
+
+        // 고정 변수 (단기예보05시 발표 기준)
+        const baseTime = "0500";
+        const serviceKey =
+          "jNu/UDr0Q2KYQ9rDGnLJqo4ahkjIQrHpn9wOnGbNXkmLqSFCj5rE6fYoLKFF1ELf5Yr4JDkQeCisuwGmsVfbOw==";
+
+        // API URL 생성
+        const url = `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(serviceKey)}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error("네트워크 응답에 문제가 있습니다.");
+
+          const data = await response.json();
+
+          if (data.response.header.resultCode !== "00") {
+            throw new Error(data.response.header.resultMsg);
+          }
+
+          const items = data.response.body.items.item;
+
+          // 데이터 재가공 (날짜+시간별로 TMP, REH 묶기)
+          groupWeatherData(items);
+
+          // 첫 페이지 출력
+          currentPage = 1;
+          renderTable();
+          renderPagination();
+        } catch (error) {
+          console.error(error);
+          tableBody.innerHTML = `<tr><td colspan="4" class="text-danger py-4">데이터를 가져오지 못했습니다. (오류: ${error.message})<br><small>※ 기상청 API는 당일 05시 이전 날짜를 조회할 경우 데이터가 없을 수 있습니다.</small></td></tr>`;
+        }
+      }
+
+      // 4. TMP(기온)와 REH(습도)를 시간별로 매핑하는 함수
+      function groupWeatherData(items) {
+        const tempMap = {};
+
+        items.forEach(item => {
+          // TMP(기온), REH(습도) 정보만 추출
+          if (item.category === "TMP" || item.category === "REH") {
+            const key = `${item.fcstDate}_${item.fcstTime}`;
+
+            if (!tempMap[key]) {
+              tempMap[key] = {
+                date: item.fcstDate.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3"),
+                time: item.fcstTime.replace(/(\d{2})(\d{2})/, "$1:$2"),
+                tmp: "-",
+                reh: "-",
+              };
+            }
+
+            if (item.category === "TMP") tempMap[key].tmp = item.fcstValue + "°C";
+            if (item.category === "REH") tempMap[key].reh = item.fcstValue + "%";
+          }
+        });
+
+        // 객체를 배열로 변환 후 정렬 (날짜 및 시간 오름차순)
+        processedData = Object.values(tempMap).sort((a, b) => {
+          return (a.date + a.time).localeCompare(b.date + b.time);
+        });
+      }
+
+      // 5. 테이블 렌더링 (현재 페이지 기준 10개씩)
+      function renderTable() {
+        const tableBody = document.getElementById("weatherTableBody");
+        tableBody.innerHTML = "";
+
+        if (processedData.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="4" class="text-muted py-4">데이터가 없습니다.</td></tr>`;
+          return;
+        }
+
+        // 페이징 범위 계산
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, processedData.length);
+        const pagedItems = processedData.slice(startIndex, endIndex);
+
+        pagedItems.forEach(item => {
+          const row = `
+                <tr>
+                    <td>${item.date}</td>
+                    <td>${item.time}</td>
+                    <td class="text-danger fw-bold">${item.tmp}</td>
+                    <td class="text-primary">${item.reh}</td>
+                </tr>
+            `;
+          tableBody.innerHTML += row;
+        });
+      }
+
+      // 6. 페이지네이션 렌더링
+      function renderPagination() {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = "";
+
+        const totalPages = Math.ceil(processedData.length / itemsPerPage);
+        if (totalPages <= 1) return; // 1페이지 이하면 노출 안 함
+
+        // 이전 버튼
+        const prevLi = document.createElement("li");
+        prevLi.className = `page-item ${currentPage === 1 ? "disabled" : ""}`;
+        prevLi.innerHTML = `<a class="page-link">&laquo;</a>`;
+        prevLi.addEventListener("click", () => {
+          if (currentPage > 1) {
+            currentPage--;
+            renderTable();
+            renderPagination();
+          }
+        });
+        pagination.appendChild(prevLi);
+
+        // 페이지 번호 버튼 (최대 5개씩 끊어서 보여주도록 동적 구현 가능하나, 단기예보는 전체 페이지가 대략 8~9개 내외이므로 한 번에 표기)
+        for (let i = 1; i <= totalPages; i++) {
+          const li = document.createElement("li");
+          li.className = `page-item ${currentPage === i ? "active" : ""}`;
+          li.innerHTML = `<a class="page-link">${i}</a>`;
+          li.addEventListener("click", () => {
+            currentPage = i;
+            renderTable();
+            renderPagination();
+          });
+          pagination.appendChild(li);
+        }
+
+        // 다음 버튼
+        const nextLi = document.createElement("li");
+        nextLi.className = `page-item ${currentPage === totalPages ? "disabled" : ""}`;
+        nextLi.innerHTML = `<a class="page-link">&raquo;</a>`;
+        nextLi.addEventListener("click", () => {
+          if (currentPage < totalPages) {
+            currentPage++;
+            renderTable();
+            renderPagination();
+          }
+        });
+        pagination.appendChild(nextLi);
+      }
+    </script>
+  </body>
+</html>

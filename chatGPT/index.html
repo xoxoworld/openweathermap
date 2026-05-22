@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>단기예보 조회</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body class="bg-light">
+    <div class="container py-5">
+      <h1 class="fw-bold mb-4">단기예보 조회</h1>
+
+      <div class="card p-4 shadow-sm mb-4">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label"> 날짜 선택 </label>
+
+            <input type="date" id="datePicker" class="form-control" />
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label"> 시/도 </label>
+
+            <select id="step1Select" class="form-select">
+              <option value="">시/도 선택</option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label"> 시/군/구 </label>
+
+            <select id="step2Select" class="form-select">
+              <option value="">시/군/구 선택</option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label"> 읍/면/동 </label>
+
+            <select id="step3Select" class="form-select">
+              <option value="">읍/면/동 선택</option>
+            </select>
+          </div>
+
+          <div class="col-12">
+            <button id="searchBtn" class="btn btn-primary w-100">조회</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="infoBox" class="alert alert-info">날짜와 지역을 선택하세요.</div>
+
+      <table class="table table-bordered table-hover text-center bg-white">
+        <thead class="table-dark">
+          <tr>
+            <th>날짜</th>
+            <th>시간</th>
+            <th>온도</th>
+            <th>습도</th>
+          </tr>
+        </thead>
+
+        <tbody id="weatherBody">
+          <tr>
+            <td colspan="4">조회 결과가 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ul id="pagination" class="pagination justify-content-center"></ul>
+    </div>
+
+    <script>
+      // 인코딩된 서비스키 → 디코딩 처리
+      const serviceKey = decodeURIComponent(
+        "jNu%2FUDr0Q2KYQ9rDGnLJqo4ahkjIQrHpn9wOnGbNXkmLqSFCj5rE6fYoLKFF1ELf5Yr4JDkQeCisuwGmsVfbOw%3D%3D",
+      );
+
+      const datePicker = document.querySelector("#datePicker");
+
+      const step1Select = document.querySelector("#step1Select");
+
+      const step2Select = document.querySelector("#step2Select");
+
+      const step3Select = document.querySelector("#step3Select");
+
+      const searchBtn = document.querySelector("#searchBtn");
+
+      const weatherBody = document.querySelector("#weatherBody");
+
+      const pagination = document.querySelector("#pagination");
+
+      const infoBox = document.querySelector("#infoBox");
+
+      let weatherList = [];
+
+      let currentPage = 1;
+
+      const rowsPerPage = 10;
+
+      // 지역 데이터
+      const regions = [
+        {
+          step1: "서울특별시",
+          step2: "종로구",
+          step3: "청운효자동",
+          nx: 60,
+          ny: 127,
+        },
+        {
+          step1: "서울특별시",
+          step2: "강남구",
+          step3: "역삼동",
+          nx: 61,
+          ny: 126,
+        },
+        {
+          step1: "서울특별시",
+          step2: "마포구",
+          step3: "서교동",
+          nx: 59,
+          ny: 127,
+        },
+
+        {
+          step1: "경기도",
+          step2: "성남시 분당구",
+          step3: "정자동",
+          nx: 62,
+          ny: 123,
+        },
+        {
+          step1: "경기도",
+          step2: "수원시 팔달구",
+          step3: "인계동",
+          nx: 60,
+          ny: 121,
+        },
+        {
+          step1: "경기도",
+          step2: "고양시 일산동구",
+          step3: "마두동",
+          nx: 57,
+          ny: 128,
+        },
+
+        {
+          step1: "부산광역시",
+          step2: "해운대구",
+          step3: "우동",
+          nx: 99,
+          ny: 75,
+        },
+        {
+          step1: "부산광역시",
+          step2: "부산진구",
+          step3: "부전동",
+          nx: 97,
+          ny: 75,
+        },
+
+        {
+          step1: "제주특별자치도",
+          step2: "제주시",
+          step3: "이도이동",
+          nx: 53,
+          ny: 38,
+        },
+        {
+          step1: "제주특별자치도",
+          step2: "서귀포시",
+          step3: "서귀동",
+          nx: 52,
+          ny: 33,
+        },
+      ];
+
+      // 오늘 날짜 기본값
+      datePicker.value = new Date().toISOString().slice(0, 10);
+
+      renderStep1Options();
+
+      // 시/도 렌더링
+      function renderStep1Options() {
+        const step1List = [...new Set(regions.map(region => region.step1))];
+
+        step1List.forEach(step1 => {
+          const option = document.createElement("option");
+
+          option.value = step1;
+          option.textContent = step1;
+
+          step1Select.appendChild(option);
+        });
+      }
+
+      // 시/도 선택
+      step1Select.addEventListener("change", () => {
+        step2Select.innerHTML = `<option value="">시/군/구 선택</option>`;
+
+        step3Select.innerHTML = `<option value="">읍/면/동 선택</option>`;
+
+        const step2List = [
+          ...new Set(
+            regions
+              .filter(region => region.step1 === step1Select.value)
+              .map(region => region.step2),
+          ),
+        ];
+
+        step2List.forEach(step2 => {
+          const option = document.createElement("option");
+
+          option.value = step2;
+          option.textContent = step2;
+
+          step2Select.appendChild(option);
+        });
+      });
+
+      // 시/군/구 선택
+      step2Select.addEventListener("change", () => {
+        step3Select.innerHTML = `<option value="">읍/면/동 선택</option>`;
+
+        const step3List = regions.filter(
+          region => region.step1 === step1Select.value && region.step2 === step2Select.value,
+        );
+
+        step3List.forEach(region => {
+          const option = document.createElement("option");
+
+          option.value = region.step3;
+
+          option.textContent = region.step3;
+
+          step3Select.appendChild(option);
+        });
+      });
+
+      // 조회 버튼
+      searchBtn.addEventListener("click", async () => {
+        if (!datePicker.value) {
+          alert("날짜를 선택하세요.");
+
+          return;
+        }
+
+        if (!step1Select.value || !step2Select.value || !step3Select.value) {
+          alert("지역을 모두 선택하세요.");
+
+          return;
+        }
+
+        const region = regions.find(
+          item =>
+            item.step1 === step1Select.value &&
+            item.step2 === step2Select.value &&
+            item.step3 === step3Select.value,
+        );
+
+        const baseDate = datePicker.value.replaceAll("-", "");
+
+        const baseTime = "0500";
+
+        await getWeatherData(baseDate, baseTime, region.nx, region.ny);
+      });
+
+      // 날씨 조회
+      async function getWeatherData(baseDate, baseTime, nx, ny) {
+        const baseUrl = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
+
+        const params = new URLSearchParams({
+          serviceKey,
+          pageNo: "1",
+          numOfRows: "1000",
+          dataType: "JSON",
+          base_date: baseDate,
+          base_time: baseTime,
+          nx,
+          ny,
+        });
+
+        const url = `${baseUrl}?${params.toString()}`;
+
+        console.log(url);
+
+        try {
+          infoBox.textContent = "예보 데이터를 조회 중이다.";
+
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(`API 요청 실패: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          console.log(data);
+
+          const items = data.response.body.items.item;
+
+          weatherList = convertWeatherData(items);
+
+          currentPage = 1;
+
+          renderWeatherTable();
+
+          renderPagination();
+
+          infoBox.textContent = `총 ${weatherList.length}개의 데이터를 조회했다.`;
+        } catch (error) {
+          console.error(error);
+
+          infoBox.textContent = "예보 데이터를 불러오지 못했다.";
+        }
+      }
+
+      // 데이터 가공
+      function convertWeatherData(items) {
+        const result = {};
+
+        items.forEach(item => {
+          const key = `${item.fcstDate}_${item.fcstTime}`;
+
+          if (!result[key]) {
+            result[key] = {
+              date: item.fcstDate,
+              time: item.fcstTime,
+              temp: "-",
+              humidity: "-",
+            };
+          }
+
+          // 온도
+          if (item.category === "TMP") {
+            result[key].temp = item.fcstValue;
+          }
+
+          // 습도
+          if (item.category === "REH") {
+            result[key].humidity = item.fcstValue;
+          }
+        });
+
+        return Object.values(result).sort((a, b) => {
+          return `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`);
+        });
+      }
+
+      // 테이블 렌더링
+      function renderWeatherTable() {
+        const start = (currentPage - 1) * rowsPerPage;
+
+        const end = start + rowsPerPage;
+
+        const pageItems = weatherList.slice(start, end);
+
+        if (pageItems.length === 0) {
+          weatherBody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              조회 결과가 없습니다.
+            </td>
+          </tr>
+        `;
+
+          return;
+        }
+
+        weatherBody.innerHTML = pageItems
+          .map(item => {
+            return `
+            <tr>
+              <td>
+                ${formatDate(item.date)}
+              </td>
+
+              <td>
+                ${formatTime(item.time)}
+              </td>
+
+              <td>
+                ${item.temp}℃
+              </td>
+
+              <td>
+                ${item.humidity}%
+              </td>
+            </tr>
+          `;
+          })
+          .join("");
+      }
+
+      // 페이지네이션
+      function renderPagination() {
+        const totalPages = Math.ceil(weatherList.length / rowsPerPage);
+
+        pagination.innerHTML = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+          const li = document.createElement("li");
+
+          li.className = `page-item ${i === currentPage ? "active" : ""}`;
+
+          li.innerHTML = `
+          <button class="page-link">
+            ${i}
+          </button>
+        `;
+
+          li.addEventListener("click", () => {
+            currentPage = i;
+
+            renderWeatherTable();
+
+            renderPagination();
+          });
+
+          pagination.appendChild(li);
+        }
+      }
+
+      // 날짜 포맷
+      function formatDate(date) {
+        return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+      }
+
+      // 시간 포맷
+      function formatTime(time) {
+        return `${time.slice(0, 2)}:${time.slice(2, 4)}`;
+      }
+    </script>
+  </body>
+</html>

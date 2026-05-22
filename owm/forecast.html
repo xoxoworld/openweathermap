@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>open weather map</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>서울 날씨 예보</h1>
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th scope="col">일시</th>
+            <th scope="col">온도</th>
+            <th scope="col">습도</th>
+            <th scope="col">아이콘</th>
+          </tr>
+        </thead>
+        <tbody id="target">
+          <!-- <tr>
+            <th scope="row">1</th>
+            <td>Mark</td>
+            <td>Otto</td>
+            <td>@mdo</td>
+          </tr> -->
+        </tbody>
+      </table>
+    </div>
+    <script>
+      const target = document.querySelector("#target");
+
+      function unixToDate(dt) {
+        let time = new Date(dt * 1000);
+        let year = time.getFullYear();
+        let month = String(time.getMonth() + 1).padStart(2, "0");
+        let date = String(time.getDate()).padStart(2, "0");
+        let hour = String(time.getHours()).padStart(2, "0");
+
+        return `${year}/${month}/${date} ${hour}시`;
+      }
+
+      fetch(
+        "https://api.openweathermap.org/data/2.5/forecast?id=1835848&appid=d5948ec3ace590812f0049bbdb822c43&units=metric",
+      )
+        .then(res => {
+          console.log(res);
+          return res.json(); //json -> js object 변환, 다음 then으로 전달
+        })
+        .then(result => {
+          console.log(result.list);
+          let tableData = "";
+          result.list.forEach(data => {
+            tableData += `<tr>
+             <th scope="row">${unixToDate(data.dt)}</th>
+             <td>${data.main.temp}</td>
+             <td>${data.main.humidity}</td>
+             <td>              
+              <img id="icon" src="https://openweathermap.org/payload/api/media/file/${data.weather[0].icon}.png" alt="" />
+              </td>
+           </tr>`;
+          });
+          target.innerHTML = tableData;
+        });
+    </script>
+  </body>
+</html>
